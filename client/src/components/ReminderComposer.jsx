@@ -9,7 +9,7 @@ const REMINDER_TYPES = [
 ];
 
 const EMPTY_MED = { medication_name: '', dosage: '', frequency: '', stop_taking: '' };
-const EMPTY_LAB = { test_name: '', due_date: '', location: '', directions: '' };
+const EMPTY_LAB = { test_name: '', test_type: '', appointment_date: '', appointment_time: '', location: '', directions: '' };
 
 function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_taking }) {
   const med = medication_name || '[medication]';
@@ -19,12 +19,14 @@ function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_t
   return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
-function buildLabMessage(firstName, { test_name, due_date, location, directions }) {
-  const test = test_name || '[lab test]';
-  const by = due_date ? ` by ${due_date}` : '';
+function buildLabMessage(firstName, { test_name, test_type, appointment_date, appointment_time, location, directions }) {
+  const test = [test_type, test_name].filter(Boolean).join(' — ') || '[lab test]';
+  const when = appointment_date
+    ? ` on ${appointment_date}${appointment_time ? ` at ${appointment_time}` : ''}`
+    : '';
   const loc = location ? `\n\nPlease go to ${location}.` : '';
   const dir = directions ? `\n\n${directions}` : '';
-  return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to get a ${test}${by}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
+  return `Hi ${firstName},\n\nI just wanted to remind you that you have a ${test} scheduled${when}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
 export default function ReminderComposer({ patient, onSent, onCancel }) {
@@ -163,12 +165,22 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label>Lab Test Name</label>
+                <label>Test Name</label>
                 <input name="test_name" value={lab.test_name} onChange={updateLab} placeholder="e.g. Lipid Panel" />
               </div>
               <div className="form-group">
-                <label>Due Date</label>
-                <input name="due_date" type="date" value={lab.due_date} onChange={updateLab} />
+                <label>Test Type</label>
+                <input name="test_type" value={lab.test_type} onChange={updateLab} placeholder="e.g. Blood Draw, Urinalysis, MRI" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Appointment Date</label>
+                <input name="appointment_date" type="date" value={lab.appointment_date} onChange={updateLab} />
+              </div>
+              <div className="form-group">
+                <label>Appointment Time</label>
+                <input name="appointment_time" type="time" value={lab.appointment_time} onChange={updateLab} />
               </div>
             </div>
             <div className="form-group">
@@ -176,7 +188,7 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
               <input name="location" value={lab.location} onChange={updateLab} placeholder="e.g. Keck Hospital Lab, 1500 San Pablo St" />
             </div>
             <div className="form-group">
-              <label>Directions {lab.directions && !lab.location && ''}</label>
+              <label>Directions</label>
               <textarea name="directions" value={lab.directions} onChange={(e) => { const updated = { ...lab, directions: e.target.value }; setLab(updated); setMessage(buildLabMessage(firstName, updated)); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
             </div>
           </>

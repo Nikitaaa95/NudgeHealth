@@ -23,12 +23,14 @@ function buildMedMessage({ medication_name, dosage, frequency, stop_taking }) {
   return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
-function buildLabMessage({ test_name, due_date, location, directions }) {
-  const test = test_name || '[lab test]';
-  const by = due_date ? ` by ${due_date}` : '';
+function buildLabMessage({ test_name, test_type, appointment_date, appointment_time, location, directions }) {
+  const test = [test_type, test_name].filter(Boolean).join(' — ') || '[lab test]';
+  const when = appointment_date
+    ? ` on ${appointment_date}${appointment_time ? ` at ${appointment_time}` : ''}`
+    : '';
   const loc = location ? `\n\nPlease go to ${location}.` : '';
   const dir = directions ? `\n\n${directions}` : '';
-  return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to get a ${test}${by}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
+  return `Hi [Patient First Name],\n\nI just wanted to remind you that you have a ${test} scheduled${when}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
 function TemplateForm({ template, allTemplates, onSave, onCancel }) {
@@ -45,7 +47,9 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
   });
   const [lab, setLab] = useState({
     test_name: template?.metadata?.test_name || '',
-    due_date: template?.metadata?.due_date || '',
+    test_type: template?.metadata?.test_type || '',
+    appointment_date: template?.metadata?.appointment_date || '',
+    appointment_time: template?.metadata?.appointment_time || '',
     location: template?.metadata?.location || '',
     directions: template?.metadata?.directions || '',
   });
@@ -154,12 +158,22 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label>Lab Test Name</label>
+                <label>Test Name</label>
                 <input name="test_name" value={lab.test_name} onChange={updateLab} placeholder="e.g. Lipid Panel" />
               </div>
               <div className="form-group">
-                <label>Due Date</label>
-                <input name="due_date" type="date" value={lab.due_date} onChange={updateLab} />
+                <label>Test Type</label>
+                <input name="test_type" value={lab.test_type} onChange={updateLab} placeholder="e.g. Blood Draw, Urinalysis, MRI" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Appointment Date</label>
+                <input name="appointment_date" type="date" value={lab.appointment_date} onChange={updateLab} />
+              </div>
+              <div className="form-group">
+                <label>Appointment Time</label>
+                <input name="appointment_time" type="time" value={lab.appointment_time} onChange={updateLab} />
               </div>
             </div>
             <div className="form-group">
@@ -168,7 +182,7 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
             </div>
             <div className="form-group">
               <label>Directions</label>
-              <textarea name="directions" value={lab.directions} onChange={(e) => { setLab({ ...lab, directions: e.target.value }); setForm((f) => ({ ...f, message: buildLabMessage({ ...lab, directions: e.target.value }) })); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
+              <textarea name="directions" value={lab.directions} onChange={(e) => { const updated = { ...lab, directions: e.target.value }; setLab(updated); setForm((f) => ({ ...f, message: buildLabMessage(updated) })); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
             </div>
           </>
         )}
@@ -289,8 +303,9 @@ export default function TemplateManager() {
               )}
               {t.reminder_type === 'lab' && t.metadata && (
                 <div className="med-meta">
+                  {t.metadata.test_type && <span>{t.metadata.test_type}</span>}
                   {t.metadata.test_name && <span>{t.metadata.test_name}</span>}
-                  {t.metadata.due_date && <span>By {t.metadata.due_date}</span>}
+                  {t.metadata.appointment_date && <span>{t.metadata.appointment_date}{t.metadata.appointment_time ? ` @ ${t.metadata.appointment_time}` : ''}</span>}
                   {t.metadata.location && <span>{t.metadata.location}</span>}
                 </div>
               )}
