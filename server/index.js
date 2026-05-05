@@ -14,6 +14,8 @@ const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/templates', templateRoutes);
