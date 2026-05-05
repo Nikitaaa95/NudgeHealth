@@ -198,6 +198,9 @@
 .template-message { font-size: 13px; color: var(--text-muted); white-space: pre-wrap; line-height: 1.6; }
 .template-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
+.med-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.med-meta span { font-size: 12px; font-weight: 500; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 20px; }
+
 /* Composer */
 .composer { border: 2px solid var(--blue); }
 

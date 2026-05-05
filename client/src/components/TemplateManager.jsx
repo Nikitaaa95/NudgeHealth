@@ -15,11 +15,25 @@ const TYPE_COLORS = {
   general: '#8b5cf6',
 };
 
+function buildMedMessage({ medication_name, dosage, frequency, stop_taking }) {
+  const med = medication_name || '[medication]';
+  const dose = dosage ? ` (${dosage})` : '';
+  const freq = frequency ? ` ${frequency}` : '';
+  const stop = stop_taking ? ` You can stop taking it ${stop_taking}.` : '';
+  return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
+}
+
 function TemplateForm({ template, onSave, onCancel }) {
   const [form, setForm] = useState({
     title: template?.title || '',
     message: template?.message || '',
     reminder_type: template?.reminder_type || 'general',
+  });
+  const [med, setMed] = useState({
+    medication_name: template?.metadata?.medication_name || '',
+    dosage: template?.metadata?.dosage || '',
+    frequency: template?.metadata?.frequency || '',
+    stop_taking: template?.metadata?.stop_taking || '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,14 +42,32 @@ function TemplateForm({ template, onSave, onCancel }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
+  function updateMed(e) {
+    const updated = { ...med, [e.target.name]: e.target.value };
+    setMed(updated);
+    setForm((f) => ({ ...f, message: buildMedMessage(updated) }));
+  }
+
+  function handleTypeChange(value) {
+    const next = { ...form, reminder_type: value };
+    if (value === 'medication' && !form.message) {
+      next.message = buildMedMessage(med);
+    }
+    setForm(next);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
+      const payload = {
+        ...form,
+        metadata: form.reminder_type === 'medication' ? med : null,
+      };
       const saved = template
-        ? await api.updateTemplate(template.id, form)
-        : await api.createTemplate(form);
+        ? await api.updateTemplate(template.id, payload)
+        : await api.createTemplate(payload);
       onSave(saved);
     } catch (err) {
       setError(err.message);
@@ -60,17 +92,43 @@ function TemplateForm({ template, onSave, onCancel }) {
                 key={t.value}
                 type="button"
                 className={`type-pill ${form.reminder_type === t.value ? 'selected' : ''}`}
-                onClick={() => setForm({ ...form, reminder_type: t.value })}
+                onClick={() => handleTypeChange(t.value)}
               >
                 {t.label}
               </button>
             ))}
           </div>
         </div>
+
+        {form.reminder_type === 'medication' && (
+          <>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Medication Name *</label>
+                <input name="medication_name" value={med.medication_name} onChange={updateMed} placeholder="e.g. Metformin" />
+              </div>
+              <div className="form-group">
+                <label>Dosage</label>
+                <input name="dosage" value={med.dosage} onChange={updateMed} placeholder="e.g. 500mg" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Frequency</label>
+                <input name="frequency" value={med.frequency} onChange={updateMed} placeholder="e.g. twice daily with food" />
+              </div>
+              <div className="form-group">
+                <label>When to Stop</label>
+                <input name="stop_taking" value={med.stop_taking} onChange={updateMed} placeholder="e.g. after 14 days" />
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="form-group">
           <label>Message *</label>
-          <textarea name="message" value={form.message} onChange={update} rows={5} required
-            placeholder="Hi [Patient Name], this is a reminder to..." />
+          <textarea name="message" value={form.message} onChange={update} rows={6} required
+            placeholder="Hi [Patient First Name], this is a reminder to..." />
         </div>
         {error && <p className="form-error">{error}</p>}
         <div className="form-actions">
@@ -173,6 +231,14 @@ export default function TemplateManager() {
                   <button className="btn-text danger" onClick={() => handleDelete(t.id)}>Delete</button>
                 </div>
               </div>
+              {t.reminder_type === 'medication' && t.metadata && (
+                <div className="med-meta">
+                  {t.metadata.medication_name && <span>{t.metadata.medication_name}</span>}
+                  {t.metadata.dosage && <span>{t.metadata.dosage}</span>}
+                  {t.metadata.frequency && <span>{t.metadata.frequency}</span>}
+                  {t.metadata.stop_taking && <span>Stop: {t.metadata.stop_taking}</span>}
+                </div>
+              )}
               <p className="template-message">{t.message}</p>
             </div>
           ))}

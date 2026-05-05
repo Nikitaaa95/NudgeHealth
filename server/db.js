@@ -45,6 +45,9 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+  await pool.query(`
+    ALTER TABLE reminder_templates ADD COLUMN IF NOT EXISTS metadata JSONB;
+  `);
   console.log('Database initialized');
 }
 

@@ -22,7 +22,8 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
 
   function applyTemplate(template) {
     setSelectedTemplate(template);
-    setMessage(template.message);
+    const firstName = patient.name.split(' ')[0];
+    setMessage(template.message.replace(/\[Patient First Name\]/g, firstName));
     setReminderType(template.reminder_type);
   }
 
