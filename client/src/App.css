@@ -300,7 +300,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #e0eaff 0%, #f8f9fb 60%);
+  background: linear-gradient(135deg, #f5e0e0 0%, #fdf8f8 60%);
   padding: 24px;
 }
 
@@ -311,7 +311,7 @@
   padding: 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 4px 24px rgba(79,142,247,0.10);
+  box-shadow: 0 4px 24px rgba(153,0,0,0.10);
 }
 
 .auth-logo { font-size: 26px; font-weight: 800; color: var(--blue); text-align: center; letter-spacing: -0.5px; }
