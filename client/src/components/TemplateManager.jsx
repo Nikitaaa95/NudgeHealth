@@ -23,7 +23,15 @@ function buildMedMessage({ medication_name, dosage, frequency, stop_taking }) {
   return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
-function TemplateForm({ template, onSave, onCancel }) {
+function buildLabMessage({ test_name, due_date, location, directions }) {
+  const test = test_name || '[lab test]';
+  const by = due_date ? ` by ${due_date}` : '';
+  const loc = location ? `\n\nPlease go to ${location}.` : '';
+  const dir = directions ? `\n\n${directions}` : '';
+  return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to get a ${test}${by}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
+}
+
+function TemplateForm({ template, allTemplates, onSave, onCancel }) {
   const [form, setForm] = useState({
     title: template?.title || '',
     message: template?.message || '',
@@ -34,6 +42,12 @@ function TemplateForm({ template, onSave, onCancel }) {
     dosage: template?.metadata?.dosage || '',
     frequency: template?.metadata?.frequency || '',
     stop_taking: template?.metadata?.stop_taking || '',
+  });
+  const [lab, setLab] = useState({
+    test_name: template?.metadata?.test_name || '',
+    due_date: template?.metadata?.due_date || '',
+    location: template?.metadata?.location || '',
+    directions: template?.metadata?.directions || '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,11 +62,23 @@ function TemplateForm({ template, onSave, onCancel }) {
     setForm((f) => ({ ...f, message: buildMedMessage(updated) }));
   }
 
+  function updateLab(e) {
+    let updated = { ...lab, [e.target.name]: e.target.value };
+    if (e.target.name === 'location') {
+      const match = allTemplates.find(
+        (t) => t.reminder_type === 'lab' && t.metadata?.location?.toLowerCase() === e.target.value.toLowerCase() && t.metadata?.directions
+      );
+      if (match) updated.directions = match.metadata.directions;
+    }
+    setLab(updated);
+    setForm((f) => ({ ...f, message: buildLabMessage(updated) }));
+  }
+
   function handleTypeChange(value) {
     const next = { ...form, reminder_type: value };
-    if (value === 'medication' && !form.message) {
-      next.message = buildMedMessage(med);
-    }
+    if (value === 'medication') next.message = buildMedMessage(med);
+    else if (value === 'lab') next.message = buildLabMessage(lab);
+    else next.message = '';
     setForm(next);
   }
 
@@ -61,13 +87,12 @@ function TemplateForm({ template, onSave, onCancel }) {
     setError('');
     setLoading(true);
     try {
-      const payload = {
-        ...form,
-        metadata: form.reminder_type === 'medication' ? med : null,
-      };
+      const metadata =
+        form.reminder_type === 'medication' ? med :
+        form.reminder_type === 'lab' ? lab : null;
       const saved = template
-        ? await api.updateTemplate(template.id, payload)
-        : await api.createTemplate(payload);
+        ? await api.updateTemplate(template.id, { ...form, metadata })
+        : await api.createTemplate({ ...form, metadata });
       onSave(saved);
     } catch (err) {
       setError(err.message);
@@ -104,7 +129,7 @@ function TemplateForm({ template, onSave, onCancel }) {
           <>
             <div className="form-row">
               <div className="form-group">
-                <label>Medication Name *</label>
+                <label>Medication Name</label>
                 <input name="medication_name" value={med.medication_name} onChange={updateMed} placeholder="e.g. Metformin" />
               </div>
               <div className="form-group">
@@ -121,6 +146,29 @@ function TemplateForm({ template, onSave, onCancel }) {
                 <label>When to Stop</label>
                 <input name="stop_taking" value={med.stop_taking} onChange={updateMed} placeholder="e.g. after 14 days" />
               </div>
+            </div>
+          </>
+        )}
+
+        {form.reminder_type === 'lab' && (
+          <>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Lab Test Name</label>
+                <input name="test_name" value={lab.test_name} onChange={updateLab} placeholder="e.g. Lipid Panel" />
+              </div>
+              <div className="form-group">
+                <label>Due Date</label>
+                <input name="due_date" type="date" value={lab.due_date} onChange={updateLab} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Location</label>
+              <input name="location" value={lab.location} onChange={updateLab} placeholder="e.g. Keck Hospital Lab, 1500 San Pablo St" />
+            </div>
+            <div className="form-group">
+              <label>Directions</label>
+              <textarea name="directions" value={lab.directions} onChange={(e) => { setLab({ ...lab, directions: e.target.value }); setForm((f) => ({ ...f, message: buildLabMessage({ ...lab, directions: e.target.value }) })); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
             </div>
           </>
         )}
@@ -206,7 +254,7 @@ export default function TemplateManager() {
       </div>
 
       {showForm && (
-        <TemplateForm template={editing} onSave={handleSaved} onCancel={cancelForm} />
+        <TemplateForm template={editing} allTemplates={templates} onSave={handleSaved} onCancel={cancelForm} />
       )}
 
       {loading ? (
@@ -237,6 +285,13 @@ export default function TemplateManager() {
                   {t.metadata.dosage && <span>{t.metadata.dosage}</span>}
                   {t.metadata.frequency && <span>{t.metadata.frequency}</span>}
                   {t.metadata.stop_taking && <span>Stop: {t.metadata.stop_taking}</span>}
+                </div>
+              )}
+              {t.reminder_type === 'lab' && t.metadata && (
+                <div className="med-meta">
+                  {t.metadata.test_name && <span>{t.metadata.test_name}</span>}
+                  {t.metadata.due_date && <span>By {t.metadata.due_date}</span>}
+                  {t.metadata.location && <span>{t.metadata.location}</span>}
                 </div>
               )}
               <p className="template-message">{t.message}</p>
