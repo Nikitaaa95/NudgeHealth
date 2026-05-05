@@ -8,13 +8,26 @@ const REMINDER_TYPES = [
   { value: 'general', label: 'General' },
 ];
 
+const EMPTY_MED = { medication_name: '', dosage: '', frequency: '', stop_taking: '' };
+
+function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_taking }) {
+  const med = medication_name || '[medication]';
+  const dose = dosage ? ` (${dosage})` : '';
+  const freq = frequency ? ` ${frequency}` : '';
+  const stop = stop_taking ? ` You can stop taking it ${stop_taking}.` : '';
+  return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
+}
+
 export default function ReminderComposer({ patient, onSent, onCancel }) {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [message, setMessage] = useState('');
   const [reminderType, setReminderType] = useState('general');
+  const [med, setMed] = useState(EMPTY_MED);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const firstName = patient.name.split(' ')[0];
 
   useEffect(() => {
     api.getTemplates().then(setTemplates).catch(console.error);
@@ -22,15 +35,39 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
 
   function applyTemplate(template) {
     setSelectedTemplate(template);
-    const firstName = patient.name.split(' ')[0];
-    setMessage(template.message.replace(/\[Patient First Name\]/g, firstName));
     setReminderType(template.reminder_type);
+    if (template.reminder_type === 'medication' && template.metadata) {
+      const m = template.metadata;
+      setMed(m);
+      setMessage(buildMedMessage(firstName, m));
+    } else {
+      setMed(EMPTY_MED);
+      setMessage(template.message.replace(/\[Patient First Name\]/g, firstName));
+    }
   }
 
   function clearTemplate() {
     setSelectedTemplate(null);
     setMessage('');
     setReminderType('general');
+    setMed(EMPTY_MED);
+  }
+
+  function handleTypeChange(value) {
+    setReminderType(value);
+    setSelectedTemplate(null);
+    setMed(EMPTY_MED);
+    if (value === 'medication') {
+      setMessage(buildMedMessage(firstName, EMPTY_MED));
+    } else {
+      setMessage('');
+    }
+  }
+
+  function updateMed(e) {
+    const updated = { ...med, [e.target.name]: e.target.value };
+    setMed(updated);
+    setMessage(buildMedMessage(firstName, updated));
   }
 
   async function handleSend(e) {
@@ -87,7 +124,7 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
                 key={t.value}
                 type="button"
                 className={`type-pill ${reminderType === t.value ? 'selected' : ''}`}
-                onClick={() => setReminderType(t.value)}
+                onClick={() => handleTypeChange(t.value)}
               >
                 {t.label}
               </button>
@@ -95,12 +132,37 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
           </div>
         </div>
 
+        {reminderType === 'medication' && (
+          <>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Medication Name</label>
+                <input name="medication_name" value={med.medication_name} onChange={updateMed} placeholder="e.g. Metformin" />
+              </div>
+              <div className="form-group">
+                <label>Dosage</label>
+                <input name="dosage" value={med.dosage} onChange={updateMed} placeholder="e.g. 500mg" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Frequency</label>
+                <input name="frequency" value={med.frequency} onChange={updateMed} placeholder="e.g. twice daily with food" />
+              </div>
+              <div className="form-group">
+                <label>When to Stop</label>
+                <input name="stop_taking" value={med.stop_taking} onChange={updateMed} placeholder="e.g. after 14 days" />
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="form-group">
           <label>Message</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            rows={5}
+            rows={6}
             placeholder="Type your reminder message..."
           />
         </div>
