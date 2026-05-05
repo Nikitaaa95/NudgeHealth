@@ -23,6 +23,15 @@ function buildMedMessage({ medication_name, dosage, frequency, stop_taking }) {
   return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
+function buildApptMessage({ appointment_date, appointment_time, location, directions }) {
+  const when = appointment_date
+    ? ` on ${appointment_date}${appointment_time ? ` at ${appointment_time}` : ''}`
+    : '';
+  const loc = location ? `\n\nYour appointment is at ${location}.` : '';
+  const dir = directions ? `\n\n${directions}` : '';
+  return `Hi [Patient First Name],\n\nI just wanted to remind you that you have an upcoming appointment${when}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
+}
+
 function buildLabMessage({ test_name, test_type, appointment_date, appointment_time, location, directions }) {
   const test = [test_type, test_name].filter(Boolean).join(' — ') || '[lab test]';
   const when = appointment_date
@@ -53,6 +62,12 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
     location: template?.metadata?.location || '',
     directions: template?.metadata?.directions || '',
   });
+  const [appt, setAppt] = useState({
+    appointment_date: template?.metadata?.appointment_date || '',
+    appointment_time: template?.metadata?.appointment_time || '',
+    location: template?.metadata?.location || '',
+    directions: template?.metadata?.directions || '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -78,10 +93,17 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
     setForm((f) => ({ ...f, message: buildLabMessage(updated) }));
   }
 
+  function updateAppt(e) {
+    const updated = { ...appt, [e.target.name]: e.target.value };
+    setAppt(updated);
+    setForm((f) => ({ ...f, message: buildApptMessage(updated) }));
+  }
+
   function handleTypeChange(value) {
     const next = { ...form, reminder_type: value };
     if (value === 'medication') next.message = buildMedMessage(med);
     else if (value === 'lab') next.message = buildLabMessage(lab);
+    else if (value === 'appointment') next.message = buildApptMessage(appt);
     else next.message = '';
     setForm(next);
   }
@@ -93,7 +115,8 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
     try {
       const metadata =
         form.reminder_type === 'medication' ? med :
-        form.reminder_type === 'lab' ? lab : null;
+        form.reminder_type === 'lab' ? lab :
+        form.reminder_type === 'appointment' ? appt : null;
       const saved = template
         ? await api.updateTemplate(template.id, { ...form, metadata })
         : await api.createTemplate({ ...form, metadata });
@@ -183,6 +206,29 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
             <div className="form-group">
               <label>Directions</label>
               <textarea name="directions" value={lab.directions} onChange={(e) => { const updated = { ...lab, directions: e.target.value }; setLab(updated); setForm((f) => ({ ...f, message: buildLabMessage(updated) })); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
+            </div>
+          </>
+        )}
+
+        {form.reminder_type === 'appointment' && (
+          <>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Appointment Date</label>
+                <input name="appointment_date" type="date" value={appt.appointment_date} onChange={updateAppt} />
+              </div>
+              <div className="form-group">
+                <label>Appointment Time</label>
+                <input name="appointment_time" type="time" value={appt.appointment_time} onChange={updateAppt} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Location</label>
+              <input name="location" value={appt.location} onChange={updateAppt} placeholder="e.g. Keck Medical Center, Suite 300" />
+            </div>
+            <div className="form-group">
+              <label>Directions</label>
+              <textarea name="directions" value={appt.directions} onChange={(e) => { const updated = { ...appt, directions: e.target.value }; setAppt(updated); setForm((f) => ({ ...f, message: buildApptMessage(updated) })); }} rows={3} placeholder="e.g. Park in structure B, take elevator to floor 3..." />
             </div>
           </>
         )}
@@ -305,6 +351,12 @@ export default function TemplateManager() {
                 <div className="med-meta">
                   {t.metadata.test_type && <span>{t.metadata.test_type}</span>}
                   {t.metadata.test_name && <span>{t.metadata.test_name}</span>}
+                  {t.metadata.appointment_date && <span>{t.metadata.appointment_date}{t.metadata.appointment_time ? ` @ ${t.metadata.appointment_time}` : ''}</span>}
+                  {t.metadata.location && <span>{t.metadata.location}</span>}
+                </div>
+              )}
+              {t.reminder_type === 'appointment' && t.metadata && (
+                <div className="med-meta">
                   {t.metadata.appointment_date && <span>{t.metadata.appointment_date}{t.metadata.appointment_time ? ` @ ${t.metadata.appointment_time}` : ''}</span>}
                   {t.metadata.location && <span>{t.metadata.location}</span>}
                 </div>

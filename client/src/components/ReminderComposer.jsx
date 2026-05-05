@@ -10,6 +10,7 @@ const REMINDER_TYPES = [
 
 const EMPTY_MED = { medication_name: '', dosage: '', frequency: '', stop_taking: '' };
 const EMPTY_LAB = { test_name: '', test_type: '', appointment_date: '', appointment_time: '', location: '', directions: '' };
+const EMPTY_APPT = { appointment_date: '', appointment_time: '', location: '', directions: '' };
 
 function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_taking }) {
   const med = medication_name || '[medication]';
@@ -17,6 +18,15 @@ function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_t
   const freq = frequency ? ` ${frequency}` : '';
   const stop = stop_taking ? ` You can stop taking it ${stop_taking}.` : '';
   return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
+}
+
+function buildApptMessage(firstName, { appointment_date, appointment_time, location, directions }) {
+  const when = appointment_date
+    ? ` on ${appointment_date}${appointment_time ? ` at ${appointment_time}` : ''}`
+    : '';
+  const loc = location ? `\n\nYour appointment is at ${location}.` : '';
+  const dir = directions ? `\n\n${directions}` : '';
+  return `Hi ${firstName},\n\nI just wanted to remind you that you have an upcoming appointment${when}.${loc}${dir}\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
 function buildLabMessage(firstName, { test_name, test_type, appointment_date, appointment_time, location, directions }) {
@@ -36,6 +46,7 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
   const [reminderType, setReminderType] = useState('general');
   const [med, setMed] = useState(EMPTY_MED);
   const [lab, setLab] = useState(EMPTY_LAB);
+  const [appt, setAppt] = useState(EMPTY_APPT);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,9 +67,15 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
       setLab(template.metadata);
       setMed(EMPTY_MED);
       setMessage(buildLabMessage(firstName, template.metadata));
+    } else if (template.reminder_type === 'appointment' && template.metadata) {
+      setAppt(template.metadata);
+      setMed(EMPTY_MED);
+      setLab(EMPTY_LAB);
+      setMessage(buildApptMessage(firstName, template.metadata));
     } else {
       setMed(EMPTY_MED);
       setLab(EMPTY_LAB);
+      setAppt(EMPTY_APPT);
       setMessage(template.message.replace(/\[Patient First Name\]/g, firstName));
     }
   }
@@ -76,8 +93,10 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
     setSelectedTemplate(null);
     setMed(EMPTY_MED);
     setLab(EMPTY_LAB);
+    setAppt(EMPTY_APPT);
     if (value === 'medication') setMessage(buildMedMessage(firstName, EMPTY_MED));
     else if (value === 'lab') setMessage(buildLabMessage(firstName, EMPTY_LAB));
+    else if (value === 'appointment') setMessage(buildApptMessage(firstName, EMPTY_APPT));
     else setMessage('');
   }
 
@@ -85,6 +104,12 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
     const updated = { ...med, [e.target.name]: e.target.value };
     setMed(updated);
     setMessage(buildMedMessage(firstName, updated));
+  }
+
+  function updateAppt(e) {
+    const updated = { ...appt, [e.target.name]: e.target.value };
+    setAppt(updated);
+    setMessage(buildApptMessage(firstName, updated));
   }
 
   function updateLab(e) {
@@ -190,6 +215,29 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
             <div className="form-group">
               <label>Directions</label>
               <textarea name="directions" value={lab.directions} onChange={(e) => { const updated = { ...lab, directions: e.target.value }; setLab(updated); setMessage(buildLabMessage(firstName, updated)); }} rows={3} placeholder="e.g. Enter through the main entrance, take the elevator to floor 2..." />
+            </div>
+          </>
+        )}
+
+        {reminderType === 'appointment' && (
+          <>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Appointment Date</label>
+                <input name="appointment_date" type="date" value={appt.appointment_date} onChange={updateAppt} />
+              </div>
+              <div className="form-group">
+                <label>Appointment Time</label>
+                <input name="appointment_time" type="time" value={appt.appointment_time} onChange={updateAppt} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Location</label>
+              <input name="location" value={appt.location} onChange={updateAppt} placeholder="e.g. Keck Medical Center, Suite 300" />
+            </div>
+            <div className="form-group">
+              <label>Directions</label>
+              <textarea name="directions" value={appt.directions} onChange={(e) => { const updated = { ...appt, directions: e.target.value }; setAppt(updated); setMessage(buildApptMessage(firstName, updated)); }} rows={3} placeholder="e.g. Park in structure B, take elevator to floor 3..." />
             </div>
           </>
         )}
