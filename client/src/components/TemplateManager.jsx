@@ -15,12 +15,15 @@ const TYPE_COLORS = {
   general: '#8b5cf6',
 };
 
-function buildMedMessage({ medication_name, dosage, frequency, stop_taking }) {
+function buildMedMessage({ medication_name, dosage, times_per_day, reminder_times, end_date }) {
   const med = medication_name || '[medication]';
   const dose = dosage ? ` (${dosage})` : '';
-  const freq = frequency ? ` ${frequency}` : '';
-  const stop = stop_taking ? ` You can stop taking it ${stop_taking}.` : '';
-  return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
+  const freq = times_per_day ? ` ${times_per_day}x daily` : '';
+  const times = reminder_times?.filter(Boolean).length
+    ? ` at ${reminder_times.filter(Boolean).join(', ')}`
+    : '';
+  const stop = end_date ? ` until ${end_date}` : '';
+  return `Hi [Patient First Name],\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}${times}${stop}.\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
 function buildApptMessage({ appointment_date, appointment_time, location, directions }) {
@@ -51,8 +54,9 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
   const [med, setMed] = useState({
     medication_name: template?.metadata?.medication_name || '',
     dosage: template?.metadata?.dosage || '',
-    frequency: template?.metadata?.frequency || '',
-    stop_taking: template?.metadata?.stop_taking || '',
+    times_per_day: template?.metadata?.times_per_day || 1,
+    reminder_times: template?.metadata?.reminder_times || ['08:00'],
+    end_date: template?.metadata?.end_date || '',
   });
   const [lab, setLab] = useState({
     test_name: template?.metadata?.test_name || '',
@@ -76,7 +80,21 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
   }
 
   function updateMed(e) {
-    const updated = { ...med, [e.target.name]: e.target.value };
+    let updated = { ...med, [e.target.name]: e.target.value };
+    if (e.target.name === 'times_per_day') {
+      const n = parseInt(e.target.value);
+      const times = [...med.reminder_times];
+      while (times.length < n) times.push('08:00');
+      updated = { ...updated, times_per_day: n, reminder_times: times.slice(0, n) };
+    }
+    setMed(updated);
+    setForm((f) => ({ ...f, message: buildMedMessage(updated) }));
+  }
+
+  function updateMedTime(index, value) {
+    const times = [...med.reminder_times];
+    times[index] = value;
+    const updated = { ...med, reminder_times: times };
     setMed(updated);
     setForm((f) => ({ ...f, message: buildMedMessage(updated) }));
   }
@@ -166,12 +184,28 @@ function TemplateForm({ template, allTemplates, onSave, onCancel }) {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Frequency</label>
-                <input name="frequency" value={med.frequency} onChange={updateMed} placeholder="e.g. twice daily with food" />
+                <label>Times Per Day</label>
+                <select name="times_per_day" value={med.times_per_day} onChange={updateMed}>
+                  {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}x daily</option>)}
+                </select>
               </div>
               <div className="form-group">
-                <label>When to Stop</label>
-                <input name="stop_taking" value={med.stop_taking} onChange={updateMed} placeholder="e.g. after 14 days" />
+                <label>End Date</label>
+                <input name="end_date" type="date" value={med.end_date} onChange={updateMed} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Reminder Times</label>
+              <div className="form-row" style={{ flexWrap: 'wrap' }}>
+                {Array.from({ length: med.times_per_day }).map((_, i) => (
+                  <input
+                    key={i}
+                    type="time"
+                    value={med.reminder_times[i] || '08:00'}
+                    onChange={(e) => updateMedTime(i, e.target.value)}
+                    style={{ flex: '1', minWidth: '120px' }}
+                  />
+                ))}
               </div>
             </div>
           </>
@@ -343,8 +377,9 @@ export default function TemplateManager() {
                 <div className="med-meta">
                   {t.metadata.medication_name && <span>{t.metadata.medication_name}</span>}
                   {t.metadata.dosage && <span>{t.metadata.dosage}</span>}
-                  {t.metadata.frequency && <span>{t.metadata.frequency}</span>}
-                  {t.metadata.stop_taking && <span>Stop: {t.metadata.stop_taking}</span>}
+                  {t.metadata.times_per_day && <span>{t.metadata.times_per_day}x daily</span>}
+                  {t.metadata.reminder_times?.length > 0 && <span>{t.metadata.reminder_times.join(', ')}</span>}
+                  {t.metadata.end_date && <span>Until {t.metadata.end_date}</span>}
                 </div>
               )}
               {t.reminder_type === 'lab' && t.metadata && (

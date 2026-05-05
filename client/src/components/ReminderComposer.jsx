@@ -8,16 +8,19 @@ const REMINDER_TYPES = [
   { value: 'general', label: 'General' },
 ];
 
-const EMPTY_MED = { medication_name: '', dosage: '', frequency: '', stop_taking: '' };
+const EMPTY_MED = { medication_name: '', dosage: '', times_per_day: 1, reminder_times: ['08:00'], end_date: '' };
 const EMPTY_LAB = { test_name: '', test_type: '', appointment_date: '', appointment_time: '', location: '', directions: '' };
 const EMPTY_APPT = { appointment_date: '', appointment_time: '', location: '', directions: '' };
 
-function buildMedMessage(firstName, { medication_name, dosage, frequency, stop_taking }) {
+function buildMedMessage(firstName, { medication_name, dosage, times_per_day, reminder_times, end_date }) {
   const med = medication_name || '[medication]';
   const dose = dosage ? ` (${dosage})` : '';
-  const freq = frequency ? ` ${frequency}` : '';
-  const stop = stop_taking ? ` You can stop taking it ${stop_taking}.` : '';
-  return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}.${stop}\n\nPlease don't hesitate to reach out if you have any questions.`;
+  const freq = times_per_day ? ` ${times_per_day}x daily` : '';
+  const times = reminder_times?.filter(Boolean).length
+    ? ` at ${reminder_times.filter(Boolean).join(', ')}`
+    : '';
+  const stop = end_date ? ` until ${end_date}` : '';
+  return `Hi ${firstName},\n\nI just wanted to remind you that you'll need to take ${med}${dose}${freq}${times}${stop}.\n\nPlease don't hesitate to reach out if you have any questions.`;
 }
 
 function buildApptMessage(firstName, { appointment_date, appointment_time, location, directions }) {
@@ -47,6 +50,7 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
   const [med, setMed] = useState(EMPTY_MED);
   const [lab, setLab] = useState(EMPTY_LAB);
   const [appt, setAppt] = useState(EMPTY_APPT);
+  const [recurring, setRecurring] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -101,7 +105,21 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
   }
 
   function updateMed(e) {
-    const updated = { ...med, [e.target.name]: e.target.value };
+    let updated = { ...med, [e.target.name]: e.target.value };
+    if (e.target.name === 'times_per_day') {
+      const n = parseInt(e.target.value);
+      const times = [...med.reminder_times];
+      while (times.length < n) times.push('08:00');
+      updated = { ...updated, times_per_day: n, reminder_times: times.slice(0, n) };
+    }
+    setMed(updated);
+    setMessage(buildMedMessage(firstName, updated));
+  }
+
+  function updateMedTime(index, value) {
+    const times = [...med.reminder_times];
+    times[index] = value;
+    const updated = { ...med, reminder_times: times };
     setMed(updated);
     setMessage(buildMedMessage(firstName, updated));
   }
@@ -127,6 +145,10 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
   async function handleSend(e) {
     e.preventDefault();
     if (!message.trim()) return setError('Message is required');
+    if (recurring && reminderType === 'medication') {
+      if (!med.end_date) return setError('End date is required for recurring reminders');
+      if (!med.reminder_times.filter(Boolean).length) return setError('At least one reminder time is required');
+    }
     setError('');
     setLoading(true);
     try {
@@ -136,6 +158,14 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
         message,
         reminder_type: reminderType,
       });
+      if (recurring && reminderType === 'medication') {
+        await api.scheduleReminder({
+          patient_id: patient.id,
+          message,
+          reminder_times: med.reminder_times.filter(Boolean),
+          end_date: med.end_date,
+        });
+      }
       onSent(reminder);
     } catch (err) {
       setError(err.message);
@@ -256,14 +286,38 @@ export default function ReminderComposer({ patient, onSent, onCancel }) {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Frequency</label>
-                <input name="frequency" value={med.frequency} onChange={updateMed} placeholder="e.g. twice daily with food" />
+                <label>Times Per Day</label>
+                <select name="times_per_day" value={med.times_per_day} onChange={updateMed}>
+                  {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}x daily</option>)}
+                </select>
               </div>
               <div className="form-group">
-                <label>When to Stop</label>
-                <input name="stop_taking" value={med.stop_taking} onChange={updateMed} placeholder="e.g. after 14 days" />
+                <label>End Date</label>
+                <input name="end_date" type="date" value={med.end_date} onChange={updateMed} />
               </div>
             </div>
+            <div className="form-group">
+              <label>Reminder Times</label>
+              <div className="form-row" style={{ flexWrap: 'wrap' }}>
+                {Array.from({ length: med.times_per_day }).map((_, i) => (
+                  <input
+                    key={i}
+                    type="time"
+                    value={med.reminder_times[i] || '08:00'}
+                    onChange={(e) => updateMedTime(i, e.target.value)}
+                    style={{ flex: '1', minWidth: '120px' }}
+                  />
+                ))}
+              </div>
+            </div>
+            <label className="recurring-checkbox">
+              <input
+                type="checkbox"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+              />
+              Set up recurring reminders — send automatically at the times above until end date
+            </label>
           </>
         )}
 

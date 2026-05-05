@@ -47,6 +47,45 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.post('/schedule', async (req, res) => {
+  const { patient_id, message, reminder_times, end_date } = req.body;
+  if (!patient_id || !message || !reminder_times?.length || !end_date) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const patientResult = await pool.query(
+      'SELECT * FROM patients WHERE id = $1 AND doctor_id = $2',
+      [patient_id, req.user.id]
+    );
+    if (!patientResult.rows[0]) return res.status(404).json({ error: 'Patient not found' });
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const sorted = [...reminder_times].sort();
+    let nextSend = null;
+    for (const time of sorted) {
+      const candidate = new Date(`${todayStr}T${time}:00`);
+      if (candidate > now) { nextSend = candidate; break; }
+    }
+    if (!nextSend) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      nextSend = new Date(`${tomorrow.toISOString().split('T')[0]}T${sorted[0]}:00`);
+    }
+
+    const result = await pool.query(
+      `INSERT INTO scheduled_reminders (doctor_id, patient_id, message, reminder_times, end_date, next_send_at)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.user.id, patient_id, message, JSON.stringify(reminder_times), end_date, nextSend]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(

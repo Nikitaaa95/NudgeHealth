@@ -48,6 +48,19 @@ async function initDB() {
   await pool.query(`
     ALTER TABLE reminder_templates ADD COLUMN IF NOT EXISTS metadata JSONB;
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS scheduled_reminders (
+      id SERIAL PRIMARY KEY,
+      doctor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      patient_id INTEGER REFERENCES patients(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      reminder_times JSONB NOT NULL,
+      end_date DATE NOT NULL,
+      active BOOLEAN DEFAULT TRUE,
+      next_send_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
   console.log('Database initialized');
 }
 

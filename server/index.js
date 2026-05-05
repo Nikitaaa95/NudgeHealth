@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { initDB } = require('./db');
+const { startScheduler } = require('./scheduler');
 const authRoutes = require('./routes/auth');
 const patientRoutes = require('./routes/patients');
 const templateRoutes = require('./routes/templates');
@@ -21,5 +22,6 @@ app.use('/api/reminders', reminderRoutes);
 const PORT = process.env.PORT || 3001;
 
 initDB().then(() => {
+  startScheduler();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });

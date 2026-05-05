@@ -45,4 +45,5 @@ export const api = {
   // Reminders
   sendReminder: (data) => request('POST', '/reminders', data),
   getReminders: () => request('GET', '/reminders'),
+  scheduleReminder: (data) => request('POST', '/reminders/schedule', data),
 };
